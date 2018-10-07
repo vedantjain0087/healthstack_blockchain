@@ -1,5 +1,5 @@
 const sha256 = require('sha256');
-const currentNodeURl = process.argv[3];
+const currentNodeURl = 'https://healthblock1.herokuapp.com';
 
 function Blockchain() {
     this.chain = [];
