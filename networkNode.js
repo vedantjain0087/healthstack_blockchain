@@ -3,10 +3,11 @@ const app = express()
 var bodyParser = require('body-parser')
 const rp = require('request-promise')
 const uuid = require('uuid/v1');
+var cors = require('cors');
 const nodeAddress = uuid().split('-').join();
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }))
-
+app.use(cors({credentials: true, origin: 'https://healthblock2.herokuapp.com'}));
 // parse application/json
 app.use(bodyParser.json())
 const BLockchain = require('./blockchain');
