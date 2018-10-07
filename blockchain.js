@@ -27,11 +27,18 @@ Blockchain.prototype.getLastBLock = function () {
     return this.chain[this.chain.length - 1]
 }
 
-Blockchain.prototype.createNewTransaction = function (amount, sender, receiver) {
+Blockchain.prototype.createNewTransaction = function (age, symptoms, disease, treatment, location, weight, url, amount, sender, receiver) {
     const newTransaction = {
         amount: amount,
         sender: sender,
-        receiver: receiver
+        receiver: receiver,
+        age: age,
+        symptoms: symptoms,
+        disease: disease,
+        treatment: treatment,
+        location: location,
+        weight: weight,
+        url:url
     };
     return newTransaction;
 }
@@ -115,7 +122,7 @@ Blockchain.prototype.getAddressData = function (address) {
     });
     return {
         addressTransaction: addressTransaction,
-        addressBalance : balance
+        addressBalance: balance
     }
 }
 

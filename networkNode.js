@@ -4,7 +4,6 @@ var bodyParser = require('body-parser')
 const rp = require('request-promise')
 const uuid = require('uuid/v1');
 const nodeAddress = uuid().split('-').join();
-const port = process.argv[2];
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }))
 
@@ -24,7 +23,7 @@ app.post('/transaction', function (req, res) {
 });
 
 app.post('/transaction/broadcast', function (req, res) {
-    const newTransaction = bitcoin.createNewTransaction(req.body.amount, req.body.sender, req.body.recipient);
+    const newTransaction = bitcoin.createNewTransaction(req.body.age, req.body.symptoms, req.body.disease, req.body.treatment, req.body.location, req.body.weight, req.body.url,req.body.amount, req.body.sender, req.body.recipient);
     bitcoin.addTransactionToPendingTransaction(newTransaction);
     const requestpromises = [];
     bitcoin.networkNodes.forEach(networkNodeUrl => {
@@ -64,7 +63,7 @@ app.get('/mine', function (req, res) {
             body: { newBlock: newBlock },
             json: true
         };
-        requestpromises.push(requestOptions);
+        requestpromises.push(rp(requestOptions));
     });
     Promise.all(requestpromises)
         .then(data => {
@@ -88,7 +87,7 @@ app.get('/mine', function (req, res) {
             });
 });
 
-app.post('/receive-new-block', function () {
+app.post('/receive-new-block', function (req,res) {
     const newBlock = req.body.newBlock;
     const lastBlock = bitcoin.getLastBLock();
     const correctHash = lastBlock.hash === newBlock.previousBlockHash;
@@ -227,4 +226,5 @@ app.get('/address/:address',function(req,res){
     });
 });
 
-app.listen(port, () => console.log(`Example app listening on port ${port}!`))
+port = process.env.PORT || 3000;
+app.listen(port, () => console.log('listening to port'+ port));
