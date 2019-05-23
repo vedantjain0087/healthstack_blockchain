@@ -1,15 +1,79 @@
 const express = require('express')
 const app = express()
 var bodyParser = require('body-parser')
+var Tesseract = require('tesseract.js')
+var multer = require('multer');
 const rp = require('request-promise')
 const uuid = require('uuid/v1');
 var cors = require('cors');
 const nodeAddress = uuid().split('-').join();
 // parse application/x-www-form-urlencoded
-app.use(bodyParser.urlencoded({ extended: false }))
-app.use(cors({credentials: true, origin: 'https://healthblock2.herokuapp.com'}));
+app.use(bodyParser.urlencoded({ extended: false }));
+var publicDir = require('path').join(__dirname, '/uploads');
+app.use(express.static(publicDir));
+var allowedOrigins = ['http://localhost',
+    'https://healthblock2.herokuapp.com'];
+app.use(cors({
+    credentials: true,
+    origin: function (origin, callback) {
+        // allow requests with no origin 
+        // (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) === -1) {
+            var msg = 'The CORS policy for this site does not ' +
+                'allow access from the specified Origin.';
+            return callback(new Error(msg), false);
+        }
+        return callback(null, true);
+    }
+}));
+// app.use(cors({ credentials: true, origin: 'https://healthblock2.herokuapp.com' }));
 // parse application/json
 app.use(bodyParser.json())
+var storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads')
+    },
+    filename: (req, file, cb) => {
+        cb(null, file.fieldname + '-' + Date.now())
+    }
+});
+var upload = multer({ storage: storage });
+app.post('/upload_medical', function(req, response){
+    var upload = multer({
+        storage: storage
+    }).single("file")
+    upload(req, response, function (err) {
+        if(err) console.log(err);
+        response.json({file:req.file.filename});
+    })
+});
+
+app.post('/upload_aadhaar', function (req, response) {
+    var upload = multer({
+        storage: storage
+    }).single("file")
+    upload(req, response, function (err) {
+        Tesseract.recognize('./uploads/' + req.file.filename)
+            .progress(function (p) { })
+            .then(function (result) {
+                arr = result.text.split(' ');
+                adhaar = "";
+                for (i = 0; i < arr.length; i++) {
+                    if (arr[i].length == 6 && arr[i + 1].length == 4 && arr[i + 2].length == 4) {
+                        adhaar += arr[i] + arr[i + 1] + arr[i + 2]
+                        break;
+                    }
+                }
+                adhaar = adhaar.slice(2, adhaar.length);
+                console.log(adhaar);
+                response.json({ success: true, aadhaar: adhaar })
+            })
+    });
+});
+
+
+
 const BLockchain = require('./blockchain');
 const bitcoin = new BLockchain();
 
@@ -24,7 +88,7 @@ app.post('/transaction', function (req, res) {
 });
 
 app.post('/transaction/broadcast', function (req, res) {
-    const newTransaction = bitcoin.createNewTransaction(req.body.age, req.body.symptoms, req.body.disease, req.body.treatment, req.body.location, req.body.weight, req.body.url,req.body.amount, req.body.sender, req.body.recipient);
+    const newTransaction = bitcoin.createNewTransaction(req.body.age, req.body.symptoms, req.body.disease, req.body.treatment, req.body.location, req.body.weight, req.body.url, req.body.amount, req.body.sender, req.body.recipient);
     bitcoin.addTransactionToPendingTransaction(newTransaction);
     const requestpromises = [];
     bitcoin.networkNodes.forEach(networkNodeUrl => {
@@ -38,7 +102,7 @@ app.post('/transaction/broadcast', function (req, res) {
     });
     Promise.all(requestpromises)
         .then(data => {
-            res.json({ note: "Transaction created and broadcast sucessfull" });
+            res.json({ success:true, note: "Transaction created and broadcast sucessfull" });
         });
 
 });
@@ -88,7 +152,7 @@ app.get('/mine', function (req, res) {
             });
 });
 
-app.post('/receive-new-block', function (req,res) {
+app.post('/receive-new-block', function (req, res) {
     const newBlock = req.body.newBlock;
     const lastBlock = bitcoin.getLastBLock();
     const correctHash = lastBlock.hash === newBlock.previousBlockHash;
@@ -184,17 +248,17 @@ app.get('/consensus', function () {
                     newPendingTransaction = blockchain.pendingTransactions;
                 }
             });
-            if (!newLongestChain || (newLongestChain && !bitcoin.chainIsValid(newLongestChain))){
+            if (!newLongestChain || (newLongestChain && !bitcoin.chainIsValid(newLongestChain))) {
                 res.json({
-                    note:"current chain has not been replaced",
-                    chain:bitcoin.chain
+                    note: "current chain has not been replaced",
+                    chain: bitcoin.chain
                 });
-            }else if(newLongestChain || (newLongestChain && bitcoin.chainIsValid(newLongestChain))){
+            } else if (newLongestChain || (newLongestChain && bitcoin.chainIsValid(newLongestChain))) {
                 bitcoin.chain = newLongestChain;
                 bitcoin.pendingTransactions = newPendingTransaction;
                 res.json({
-                    note:"current chain has been replaced",
-                    chain:bitcoin.chain
+                    note: "current chain has been replaced",
+                    chain: bitcoin.chain
                 });
             }
         });
@@ -202,15 +266,15 @@ app.get('/consensus', function () {
 });
 
 
-app.get('/block/:blockHash',function(req,res){
-const blockHash = req.params.blockHash;
-const correctBlock = bitcoin.getBlock(blockHash);
-res.json({
-    block:correctBlock
-});
+app.get('/block/:blockHash', function (req, res) {
+    const blockHash = req.params.blockHash;
+    const correctBlock = bitcoin.getBlock(blockHash);
+    res.json({
+        block: correctBlock
+    });
 });
 
-app.get('/transaction/:transactionId',function(req,res){
+app.get('/transaction/:transactionId', function (req, res) {
     const transactionId = req.params.transactionId;
     const transactionData = bitcoin.getTransaction(transactionId);
     res.json({
@@ -219,8 +283,8 @@ app.get('/transaction/:transactionId',function(req,res){
     });
 });
 
-app.get('/address/:address',function(req,res){
-    const address = req.params.address;
+app.post('/address', function (req, res) {
+    const address = req.body.address;
     const addressData = bitcoin.getAddressData(address);
     res.json({
         addressData: addressData
@@ -228,4 +292,4 @@ app.get('/address/:address',function(req,res){
 });
 
 port = process.env.PORT || 3000;
-app.listen(port, () => console.log('listening to port'+ port));
+app.listen(port, () => console.log('listening to port' + port));
